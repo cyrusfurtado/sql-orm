@@ -1,0 +1,895 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>database: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">go.crwd.dev/ce/chessboard/internal/chessboard/database/common.go (100.0%)</option>
+				
+				<option value="file1">go.crwd.dev/ce/chessboard/internal/chessboard/database/connection.go (87.5%)</option>
+				
+				<option value="file2">go.crwd.dev/ce/chessboard/internal/chessboard/database/create.go (87.5%)</option>
+				
+				<option value="file3">go.crwd.dev/ce/chessboard/internal/chessboard/database/delete.go (78.9%)</option>
+				
+				<option value="file4">go.crwd.dev/ce/chessboard/internal/chessboard/database/query.go (74.1%)</option>
+				
+				<option value="file5">go.crwd.dev/ce/chessboard/internal/chessboard/database/update.go (76.9%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package database
+
+import (
+        "fmt"
+        "strconv"
+        "strings"
+)
+
+// build the in clause
+func (q *query) buildInClause(cond Condition) (string, int) <span class="cov8" title="1">{
+        values := cond.Values[0].([]interface{})
+        placeholders := make([]string, len(values))
+        for i := range values </span><span class="cov8" title="1">{
+                q.ArgCount++
+                placeholders[i] = fmt.Sprintf("$%s", strconv.Itoa(q.ArgCount))
+        }</span>
+
+        // check for not condition
+        <span class="cov8" title="1">notStr := ""
+        if cond.Not </span><span class="cov8" title="1">{
+                notStr = "NOT"
+        }</span>
+
+        <span class="cov8" title="1">return fmt.Sprintf("%s %s IN (%s)", cond.Field, notStr, strings.Join(placeholders, ", ")), q.ArgCount</span>
+}
+
+// Recursive function to handle nested conditions
+func (q *query) buildWhereClauses(conds []Condition, whereClauses []string) ([]string, int) <span class="cov8" title="1">{
+
+        for i, cond := range conds </span><span class="cov8" title="1">{
+                if cond.Nested != nil </span><span class="cov8" title="1">{
+                        // Open parentheses for nested conditions
+                        whereClauses = append(whereClauses, "(")
+
+                        wc, ac := q.buildWhereClauses(cond.Nested.Conditions, whereClauses)
+                        whereClauses = wc
+                        q.ArgCount = ac
+
+                        whereClauses = append(whereClauses, ")")
+                }</span> else<span class="cov8" title="1"> {
+
+                        // check for the not condition
+                        notStr := ""
+                        if cond.Not </span><span class="cov8" title="1">{
+                                notStr = "NOT"
+                        }</span>
+
+                        // Add the actual condition
+                        <span class="cov8" title="1">switch cond.Type </span>{
+                        case ConditionIn:<span class="cov8" title="1"> // handle in clause
+                                inClause, iargc := q.buildInClause(cond)
+                                q.ArgCount = iargc
+                                whereClauses = append(whereClauses, inClause)
+                                q.Args = append(q.Args, cond.Values[0].([]interface{})...)</span>
+                        case ConditionBetween:<span class="cov8" title="1"> // handle between clause
+                                q.ArgCount++
+                                arg1 := q.ArgCount
+                                q.ArgCount++
+                                arg2 := q.ArgCount
+                                betweenClause := fmt.Sprintf("%s %s BETWEEN $%s AND $%s", cond.Field, notStr, strconv.Itoa(arg1), strconv.Itoa(arg2))
+                                whereClauses = append(whereClauses, betweenClause)
+                                q.Args = append(q.Args, cond.Values[0], cond.Values[1])</span>
+                        default:<span class="cov8" title="1">
+                                q.ArgCount++
+                                clause := fmt.Sprintf("%s %s %s $%s", notStr, cond.Field, cond.Operator, strconv.Itoa(q.ArgCount))
+                                whereClauses = append(whereClauses, clause)
+                                q.Args = append(q.Args, cond.Values[0])</span>
+                        }
+                }
+
+                // Add logical operator between conditions, except for the last one
+                <span class="cov8" title="1">if i &lt; len(conds)-1 &amp;&amp; cond.NextLogicalOp != "" </span><span class="cov8" title="1">{
+                        whereClauses = append(whereClauses, cond.NextLogicalOp)
+                }</span>
+        }
+        <span class="cov8" title="1">return whereClauses, q.ArgCount</span>
+}
+
+func (q *query) addWhere() error <span class="cov8" title="1">{
+        if len(q.whereConds) &gt; 0 </span><span class="cov8" title="1">{
+                q.QueryString += " WHERE "
+                var whereClauses []string
+                whereClauses, q.ArgCount = q.buildWhereClauses(q.whereConds, whereClauses)
+                q.QueryString += strings.Join(whereClauses, " ")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+
+        _ "github.com/lib/pq"
+)
+
+// establish connection to the database
+type ConnectionExecutor interface {
+        Connect() error
+        Close() error
+        GetDB() *sql.DB
+}
+
+// concrete implementation of ConnectionExecutor
+type postgresConnection struct {
+        db     *sql.DB // db instance handle
+        Host   string  `json:"host"`
+        DbName string  `json:"dbname"`
+        Port   string  `json:"port"`
+        User   string  `json:"user"`
+        Pass   string  `json:"pass"`
+        Ssl    string  `json:"ssl"`
+}
+
+// connect to the postgres db
+func (c *postgresConnection) Connect() error <span class="cov8" title="1">{
+        if c.Host == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("host not set")
+        }</span> else<span class="cov8" title="1"> if c.DbName == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("database not set")
+        }</span> else<span class="cov8" title="1"> if c.Port == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("port not set")
+        }</span> else<span class="cov8" title="1"> if c.User == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("user not set")
+        }</span> else<span class="cov8" title="1"> if c.Pass == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("creds not set")
+        }</span> else<span class="cov8" title="1"> if c.Ssl == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("ssl mode not set")
+        }</span>
+
+        <span class="cov8" title="1">dsn := fmt.Sprintf("host=%s dbname=%s user=%s password=%s port=%s sslmode=%s", c.Host, c.DbName, c.User, c.Pass, c.Port, c.Ssl)
+
+        // open a connection to postgres
+        db, err := sql.Open("postgres", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to db =&gt; %s", err.Error())
+        }</span>
+
+        // verify the connection
+        <span class="cov8" title="1">err = db.Ping()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to ping db =&gt; %s", err.Error())
+        }</span>
+
+        <span class="cov8" title="1">c.db = db
+        return nil</span>
+}
+
+// close the connection to the postgres db
+func (c *postgresConnection) Close() error <span class="cov8" title="1">{
+        return c.db.Close()
+}</span>
+
+// get a handle to the db instance
+func (c *postgresConnection) GetDB() *sql.DB <span class="cov0" title="0">{
+        return c.db
+}</span>
+
+// constructor for orm
+func NewConnection(host, dbname, user, pass, port, ssl string) ConnectionExecutor <span class="cov8" title="1">{
+        return &amp;postgresConnection{
+                Host:   host,
+                DbName: dbname,
+                User:   user,
+                Pass:   pass,
+                Port:   port,
+                Ssl:    ssl,
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+        "strconv"
+        "strings"
+)
+
+func (q *query) makePlaceholders(n int) []string <span class="cov8" title="1">{
+        placeholders := make([]string, n)
+        for i := range placeholders </span><span class="cov8" title="1">{
+                q.ArgCount++
+                placeholders[i] = "$" + strconv.Itoa(q.ArgCount)
+        }</span>
+
+        <span class="cov8" title="1">q.Args = q.colValues
+        return placeholders</span>
+}
+
+func (q *query) BuildInsertQuery() (*sql.Stmt, error) <span class="cov8" title="1">{
+
+</span>        err := q.checkPreBuildErrors()
+        i</span>f err != nil {
+                return nil, err
+        <span class="cov8" title="1">}
+
+        if len(q.cols) != len(q.colValues) {
+                return nil, fmt.Errorf("columns / values length mismatch")
+        }
+
+        q.QueryString = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", q.table, strings.Join(q.cols, ", "), strings.Join(q.makePlaceholders(len(q.cols)), ", "))
+
+</span>        q.QueryString += ";"
+
+</span>        fmt.Println("insert query =&gt; ", q.QueryString, q.Args, q.ArgCount)
+
+</span>        stmt, err := q.conn.GetDB().Prepare(q.QueryString)
+        if err != nil {
+                return nil, err
+        }
+
+        return stmt, n</span><span class="cov0" title="0">il
+}
+
+</span>f<span class="cov8" title="1">unc (q *query) Create() (int64, error) {
+
+        stmt, err := q.BuildInsertQuery()
+        if err != nil </span><span class="cov8" title="1">{
+                return 0, err
+        }</span>
+        defer stmt.Close()
+
+        res, err := s</span>tmt.Exec(q.Args...)
+        if err != nil {
+                return 0, err
+        }
+
+        c, err := res.RowsAffected()
+        return c, err
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+)
+
+func (q *query) BuildDeleteQuery() (*sql.Stmt, error) <span class="cov8" title="1">{
+
+        err := q.checkPreBuildErro</span><span class="cov0" title="0">rs()
+        if err != nil {
+                </span>return nil, err
+        }
+
+        <span class="cov8" title="1">if len(q.whereConds) == 0 {
+                return nil, fmt.Errorf("where clause required for delete")
+        }
+
+        // Start building the query
+        q.QueryString = fmt.Sprintf("DELETE FROM %s", q.table)
+
+        // Add WHERE conditions
+        q.addWhere()
+
+        q.QueryString </span><span class="cov0" title="0">+= ";"
+
+        f</span>mt.Println("delete query =&gt; ", q.QueryString, q.Args)
+
+        <span class="cov8" title="1">stmt, err := q.c</span>onn.GetDB().Prepare(q.QueryString)
+        if err != nil {
+                return nil, err
+        }
+
+        return stmt, nil
+}
+</span>
+fu</span>nc (q *query) Delete() (int64, error) {
+
+        stmt, err := q.BuildDeleteQuery()
+        if err != nil {
+                return 0, err</span><span class="cov0" title="0">
+        }
+        d</span>efer stmt.Close()
+
+        <span class="cov8" title="1">res, err := stmt.Exec(q.Args...)
+        if err != nil</span> {
+                return 0, err
+        }
+
+        c, err := res.RowsAffected()
+        return c, err
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package database
+
+import (
+        "fmt"
+        "strconv"
+        "strings"
+)
+
+type QueryExecutor interface {
+        Select(cols ...string) QueryExecutor
+        For(table string) QueryExecutor
+        Where(conditions []Condition) QueryExecutor
+
+        Join([]JoinClause) QueryExecutor
+
+        OrderBy(orderBy []OrderClause) QueryExecutor
+        GroupBy(groupBy []string) QueryExecutor
+        Having(having []Condition) QueryExecutor
+
+        Limit(limit int) QueryExecutor
+        Offset(offset int) QueryExecutor
+        Set(values map[string]any) QueryExecutor
+
+        Find() ([][]any, error) // select query to be executed
+
+        // FindOne() (*sql.Rows, error)
+
+        Create() (int64, error)
+        Update() (int64, error)
+        Delete() (int64, error)
+}
+
+type WhereGroup struct {
+        Conditions []Condition
+}
+
+type ConditionType int
+
+const (
+        ConditionStandard ConditionType = iota
+        ConditionIn
+        ConditionBetween
+)
+
+// Struct for a WHERE condition
+type Condition struct {
+        Field         string
+        Operator      string
+        Values        []interface{}
+        NextLogicalOp string
+        Nested        *WhereGroup
+        Not           bool
+        Type          ConditionType
+}
+
+type JoinType string
+
+const (
+        BasicJoin JoinType = "JOIN"
+        InnerJoin JoinType = "INNER JOIN"
+        OuterJoin JoinType = "OUT JOIN"
+        LeftJoin  JoinType = "LEFT JOIN"
+        RightJoin JoinType = "RIGHT JOIN"
+        FullJoin  JoinType = "FULL JOIN"
+)
+
+// Struct for a JOIN clause
+type JoinClause struct {
+        JoinType  JoinType
+        Table     string
+        Condition Condition
+}
+
+// Struct for an ORDER BY clause
+type OrderClause struct {
+        Field string
+        Order string
+}
+
+type query struct {
+        // handle to the db instance
+        conn ConnectionExecutor
+
+        table     string
+        cols      []string
+        colValues []interface{}
+
+        whereConds  []Condition
+        joins       []JoinClause
+        groupBy     []string
+        having      []Condition
+        orderBy     []OrderClause
+        limit       int
+        offset      int
+        Args        []any
+        ArgCount    int
+        QueryString string
+
+        errors []error
+}
+
+func (q *query) Select(cols ...string) QueryExecutor <span class="cov8" title="1">{
+        colLen := len(cols)
+        if colLen != 0 </span><span class="cov8" title="1">{
+                colsArr := make([]string, len(cols))
+                copy(colsArr, cols)
+                q.cols = cols
+        }</span> else<span class="cov8" title="1"> {
+                q.cols = []string{"*"}
+        }</span>
+        <span class="cov8" title="1">return q</span>
+}
+
+func (q *query) For(table string) QueryExecutor <span class="cov8" title="1">{
+        if table == "" </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty table not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.table = table
+        return q</span>
+}
+
+func (q *query) Where(conditions []Condition) QueryExecutor <span class="cov8" title="1">{
+        if len(conditions) == 0 </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty conditions not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.whereConds = conditions
+        return q</span>
+}
+
+func (q *query) Join(joins []JoinClause) QueryExecutor <span class="cov8" title="1">{
+        if len(joins) == 0 </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty joins not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.joins = joins
+        return q</span>
+}
+
+func (q *query) GroupBy(groupBy []string) QueryExecutor <span class="cov8" title="1">{
+        if len(groupBy) == 0 </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty group clauses not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.groupBy = groupBy
+        return q</span>
+}
+
+func (q *query) OrderBy(orderBy []OrderClause) QueryExecutor <span class="cov8" title="1">{
+        if len(orderBy) == 0 </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty orderby clauses not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.orderBy = orderBy
+        return q</span>
+}
+
+func (q *query) Having(having []Condition) QueryExecutor <span class="cov8" title="1">{
+        if len(having) == 0 </span><span class="cov0" title="0">{
+                q.errors = append(q.errors, fmt.Errorf("empty having clauses not allowed"))
+        }</span>
+
+        <span class="cov8" title="1">q.having = having
+        return q</span>
+}
+
+func (q *query) Limit(limit int) QueryExecutor <span class="cov8" title="1">{
+        q.limit = limit
+        return q
+}</span>
+
+func (q *query) Offset(offset int) QueryExecutor <span class="cov8" title="1">{
+        q.offset = offset
+        return q
+}</span>
+
+func (q *query) addJoins() error <span class="cov8" title="1">{
+        if len(q.whereConds) &gt; 0 </span><span class="cov8" title="1">{
+                for _, join := range q.joins </span><span class="cov8" title="1">{
+                        if join.JoinType == "" || join.Table == "" </span><span class="cov0" title="0">{
+                                nerr := fmt.Errorf("join missing type/table")
+                                q.errors = append(q.errors, nerr)
+                                return nerr
+                        }</span>
+                        <span class="cov8" title="1">condition := join.Condition
+                        q.ArgCount++
+
+                        if condition.Field == "" || condition.Operator == "" || condition.Values[0] == nil </span><span class="cov0" title="0">{
+                                nerr := fmt.Errorf("join condition invalid")
+                                q.errors = append(q.errors, nerr)
+                                return nerr
+                        }</span>
+
+                        <span class="cov8" title="1">q.QueryString += fmt.Sprintf(" %s %s ON %s %s $%s", join.JoinType, join.Table, condition.Field, condition.Operator, strconv.Itoa(q.ArgCount))
+                        q.Args = append(q.Args, condition.Values[0])</span>
+                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (q *query) addGroupBy() error <span class="cov8" title="1">{
+        if len(q.groupBy) &gt; 0 </span><span class="cov8" title="1">{
+                q.QueryString += " GROUP BY " + strings.Join(q.groupBy, ", ")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (q *query) addHaving() error <span class="cov8" title="1">{
+        if len(q.having) &gt; 0 </span><span class="cov8" title="1">{
+                var havingClauses []string
+                for _, cond := range q.having </span><span class="cov8" title="1">{
+                        q.ArgCount++
+
+                        if cond.Field == "" || cond.Operator == "" || cond.Values[0] == nil </span><span class="cov0" title="0">{
+                                nerr := fmt.Errorf("having condition invalid")
+                                q.errors = append(q.errors, nerr)
+                                return nerr
+                        }</span>
+
+                        <span class="cov8" title="1">havingClauses = append(havingClauses, fmt.Sprintf("%s %s $%s", cond.Field, cond.Operator, strconv.Itoa(q.ArgCount)))
+                        q.Args = append(q.Args, cond.Values[0])</span>
+                }
+                <span class="cov8" title="1">q.QueryString += " HAVING "
+                q.QueryString += strings.Join(havingClauses, " AND ")</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (q *query) addOrderby() error <span class="cov8" title="1">{
+        if len(q.orderBy) &gt; 0 </span><span class="cov8" title="1">{
+                var orderClauses []string
+                for _, order := range q.orderBy </span><span class="cov8" title="1">{
+
+                        if order.Field == "" || order.Order == "" </span><span class="cov0" title="0">{
+                                nerr := fmt.Errorf("order condition invalid")
+                                q.errors = append(q.errors, nerr)
+                                return nerr
+                        }</span>
+
+                        <span class="cov8" title="1">orderClauses = append(orderClauses, fmt.Sprintf("%s %s", order.Field, order.Order))</span>
+                }
+                <span class="cov8" title="1">q.QueryString += " ORDER BY " + strings.Join(orderClauses, ", ")</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (q *query) checkPreBuildErrors() error <span class="cov8" title="1">{
+        if len(q.errors) &gt; 0 </span><span class="cov0" title="0">{
+                errStrs := make([]string, len(q.errors))
+                for i, err := range q.errors </span><span class="cov0" title="0">{
+                        errStrs[i] = err.Error()
+                }</span>
+
+                <span class="cov0" title="0">errs := strings.Join(errStrs, ", ")
+                return fmt.Errorf("query pre build errors [ %s ]", errs)</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (q *query) BuildSelectQuery() error <span class="cov8" title="1">{
+        err := q.checkPreBuildErrors()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Start building the query
+        <span class="cov8" title="1">q.QueryString = fmt.Sprintf("SELECT %s FROM %s", strings.Join(q.cols, ", "), q.table)
+
+        // Add JOIN clauses
+        err = q.addJoins()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Add WHERE conditions
+        <span class="cov8" title="1">err = q.addWhere()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Add GROUP BY
+        <span class="cov8" title="1">err = q.addGroupBy()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Add HAVING conditions
+        <span class="cov8" title="1">err = q.addHaving()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Add ORDER BY
+        <span class="cov8" title="1">err = q.addOrderby()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Add LIMIT and OFFSET
+        <span class="cov8" title="1">if q.limit &gt; 0 </span><span class="cov8" title="1">{
+                q.QueryString += fmt.Sprintf(" LIMIT %d", q.limit)
+        }</span>
+        <span class="cov8" title="1">if q.offset &gt; 0 </span><span class="cov8" title="1">{
+                q.QueryString += fmt.Sprintf(" OFFSET %d", q.offset)
+        }</span>
+
+        <span class="cov8" title="1">q.QueryString += ";"
+
+        return nil</span>
+}
+
+// implements the select functionality
+func (q *query) Find() ([][]any, error) <span class="cov8" title="1">{
+        err := q.BuildSelectQuery()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">fmt.Println("queryString ", q.QueryString, q.Args)
+        rows, err := q.conn.GetDB().Query(q.QueryString, q.Args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var rowData [][]any
+
+        cols, err := rows.Columns()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">for rows.Next() </span><span class="cov8" title="1">{
+
+                vals := make([]any, len(cols))
+                scanArgs := make([]any, len(cols))
+
+                for i := range vals </span><span class="cov8" title="1">{
+                        scanArgs[i] = &amp;vals[i]
+                }</span>
+
+                <span class="cov8" title="1">if err := rows.Scan(scanArgs...); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">rowData = append(rowData, vals)</span>
+        }
+
+        <span class="cov8" title="1">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return rowData, err</span>
+}
+
+// constructor for query which adds handle for the db connection
+func (q *query) init(conn ConnectionExecutor) error <span class="cov8" title="1">{
+        if conn == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("could not find connection")
+        }</span>
+
+        <span class="cov8" title="1">if conn.GetDB() == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("could not find db instance")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// contructor for query
+func NewQuery(conn ConnectionExecutor) (QueryExecutor, error) <span class="cov8" title="1">{
+        q := &amp;query{}
+
+        err := q.init(conn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">q.conn = conn
+
+        q.errors = make([]error, 0)
+        return q, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+        "strings"
+
+        "strconv"
+)
+
+func (q *query) Set(values map[string]any) QueryExecutor <span class="cov8" title="1">{
+        l := len(values)
+
+        if l &gt; 0 </span><span class="cov8" title="1">{
+                q.cols = make([]string, l)
+                q.colValues = make([]any, l)
+
+                i := 0
+                for k, v := range values </span><span class="cov8" title="1">{
+                        if k == "" </span><span class="cov0" title="0">{
+                                q.errors = append(q.errors, fmt.Errorf("Set found empty key at position %v", i))
+                        }</span>
+                        <span class="cov8" title="1">if v == "" </span><span class="cov0" title="0">{
+                                q.errors = append(q.errors, fmt.Errorf("Set found empty value at position %v", i))
+                        }</span>
+                        <span class="cov8" title="1">q.cols[i] = k
+                        q.colValues[i] = v
+                        i++</span>
+                }
+        }
+
+        <span class="cov8" title="1">return q</span>
+}
+
+func (q *query) setColumns() error <span class="cov8" title="1">{
+        setCols := make([]string, len(q.cols))
+        for i, v := range q.cols </span><span class="cov8" title="1">{
+                q.ArgCount++
+
+                if v == "" </span><span class="cov0" title="0">{
+                        nerr := fmt.Errorf("set columns found empty key at position %v", i)
+                        q.errors = append(q.errors, nerr)
+                        return nerr
+                }</span>
+
+                <span class="cov8" title="1">setCols[i] = fmt.Sprintf("%s = $%s", v, strconv.Itoa(q.ArgCount))</span>
+        }
+
+        <span class="cov8" title="1">q.QueryString += fmt.Sprintf(" SET %s", strings.Join(setCols, ", "))
+        q.Args = q.colValues
+
+        return nil</span>
+}
+
+func (q *query) BuildUpdateQuery() (*sql.Stmt, error) <span class="cov8" title="1">{
+        err := q.checkPreBuildErrors()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if len(q.cols) != len(q.colValues) </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("columns / values length mismatch")
+        }</span>
+
+        // Start building the query
+        <span class="cov8" title="1">q.QueryString = fmt.Sprintf("UPDATE %s", q.table)
+
+        // set the columns to be updated
+        err = q.setColumns()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Add WHERE conditions
+        <span class="cov8" title="1">err = q.addWhere()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">q.QueryString += ";"
+
+        fmt.Println("update query =&gt; ", q.QueryString, q.Args)
+
+        stmt, err := q.conn.GetDB().Prepare(q.QueryString)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return stmt, nil</span>
+}
+
+func (q *query) Update() (int64, error) <span class="cov8" title="1">{
+
+        stmt, err := q.BuildUpdateQuery()
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov8" title="1">defer stmt.Close()
+
+        res, err := stmt.Exec(q.Args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">c, err := res.RowsAffected()
+        return c, err</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
