@@ -14,4 +14,4 @@ A lightweight and easy-to-use Object-Relational Mapping (ORM) tool for Go (Golan
 To install MyORM, use `go get`:
 
 ```bash
-go get github.com/sql-orm
+go get github.com/cyrusfurtado/sql-orm

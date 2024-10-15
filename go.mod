@@ -1,4 +1,4 @@
-module github.com/sql-orm
+module github.com/cyrusfurtado/sql-orm
 
 go 1.23.2
 
